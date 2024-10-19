@@ -120,6 +120,7 @@ class Picker(ActionToolBase):
         2. Update picker pos
         3. Update to-be-picked particle pos
         """
+        # NOTE: This 'action' is delta action, not the goal position
         action = np.reshape(action, [-1, 4])
 
         # determine whether to pick the cloth at picker goal position (via pick_flag)
@@ -138,7 +139,8 @@ class Picker(ActionToolBase):
         # Pick new particles and update the mass and the positions
         for i in range(self.num_picker):
             # calculate the picker goal positions (current position + action)
-            new_picker_pos[i, :] = self._apply_picker_boundary(picker_pos[i, :] + action[i, :3])
+            # new_picker_pos[i, :] = self._apply_picker_boundary(picker_pos[i, :] + action[i, :3])
+            new_picker_pos[i, :] = picker_pos[i, :] + action[i, :3]
             # if the picker should pick the particle at the picker goal position
             if pick_flag[i]:
                 if self.picked_particles[i] is None:  # No particle is currently picked and thus need to select a particle to pick
@@ -212,7 +214,8 @@ class PickerPickPlace(Picker):
         total_steps = 0
         action = action.reshape(-1, 4) # goal position and pick/drop flag for each picker
         curr_pos = np.array(pyflex.get_shape_states()).reshape(-1, 14)[:, :3]
-        end_pos = np.vstack([self._apply_picker_boundary(picker_pos) for picker_pos in action[:, :3]])
+        # end_pos = np.vstack([self._apply_picker_boundary(picker_pos) for picker_pos in action[:, :3]])
+        end_pos = action[:, :3]
         dist = np.linalg.norm(curr_pos - end_pos, axis=1)
         num_step = np.max(np.ceil(dist / self.delta_move))
         if num_step < 0.1:
