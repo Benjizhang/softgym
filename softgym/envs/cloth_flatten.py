@@ -124,12 +124,12 @@ class ClothFlattenEnv(ClothEnv):
         return self._get_obs()
 
     def _step(self, action):
-        self.action_tool.step(action)
+        _, frames = self.action_tool.step(action)
         if self.action_mode in ['sawyer', 'franka']:
             pyflex.step(self.action_tool.next_action)
         else:
             pyflex.step()
-        return
+        return frames
 
     def _get_current_covered_area(self, pos):
         """

@@ -4,6 +4,7 @@ from gym.spaces import Box
 from softgym.utils.misc import rotation_2d_around_center, extend_along_center
 import pyflex
 import scipy.spatial
+import cv2
 
 
 class ActionToolBase(metaclass=abc.ABCMeta):
@@ -205,12 +206,28 @@ class PickerPickPlace(Picker):
                                 np.array([*picker_high, 1.] * self.num_picker), dtype=np.float32)
         self.delta_move = 0.01
         self.env = env
-
+    def render(self, mode='rgb_array'):
+        if mode == 'rgb_array':
+            img, depth = pyflex.render()
+            width, height = 720, 720
+            img = img.reshape(height, width, 4)[::-1, :, :3]  # Need to reverse the height dimension
+            return img
+        elif mode == 'human':
+            raise NotImplementedError
+    def get_image(self, width=720, height=720):
+        """ use pyflex.render to get a rendered image. """
+        img = self.render(mode='rgb_array')
+        img = img.astype(np.uint8)
+        if width != img.shape[0] or height != img.shape[1]:
+            img = cv2.resize(img, (width, height))
+        return img
+    
     def step(self, action):
         """
         action: Array of pick_num x 4. For each picker, the action should be [x, y, z, pick/drop]. The picker will then first pick/drop, and keep
         the pick/drop state while moving towards x, y, x.
         """
+        frames = []
         total_steps = 0
         action = action.reshape(-1, 4) # goal position and pick/drop flag for each picker
         curr_pos = np.array(pyflex.get_shape_states()).reshape(-1, 14)[:, :3]
@@ -231,20 +248,26 @@ class PickerPickPlace(Picker):
             super().step(np.hstack([delta, action[:, 3].reshape(-1, 1)]))
             pyflex.step()
             pyflex.render() # render the scene for each step
+            if i % 5 == 0:
+                frames.append(self.get_image())
             total_steps += 1
             if self.env is not None and self.env.recording:
                 self.env.video_frames.append(self.env.render(mode='rgb_array'))
             if np.alltrue(dist < self.delta_move):
                 break
         # wait until stable
-        for _ in range(100):
-            pyflex.step()
-            pyflex.render()
-            curr_vel = pyflex.get_velocities()
-            if np.alltrue(curr_vel < 0.01):
-                break
+        if end_pos[0, 1] > 0.05 and end_pos[1, 1] > 0.05 and np.any(action[:, 3] == 0) or \
+            (np.abs(end_pos[0, 2] + end_pos[1, 2])<0.001):
+            for j in range(150):
+                pyflex.step()
+                pyflex.render()
+                if j % 5 == 0:
+                    frames.append(self.get_image())
+                curr_vel = pyflex.get_velocities()
+                if np.alltrue(curr_vel < 0.01):
+                    break
 
-        return total_steps
+        return total_steps, frames
 
     def get_model_action(self, action, picker_pos):
         """Input the action and return the action used for GNN model prediction"""
