@@ -71,14 +71,15 @@ class NormalizedEnv(object):
 
     @overrides
     def step(self, action, **kwargs):
-        if isinstance(self._wrapped_env.action_space, Box):
-            # rescale the action
-            lb, ub = self._wrapped_env.action_space.low, self._wrapped_env.action_space.high
-            scaled_action = lb + (action + 1.) * 0.5 * (ub - lb)
-            if self._clip:
-                scaled_action = np.clip(scaled_action, lb, ub)
-        else:
-            scaled_action = action
+        # if isinstance(self._wrapped_env.action_space, Box):
+        #     # rescale the action
+        #     lb, ub = self._wrapped_env.action_space.low, self._wrapped_env.action_space.high
+        #     scaled_action = lb + (action + 1.) * 0.5 * (ub - lb)
+        #     if self._clip:
+        #         scaled_action = np.clip(scaled_action, lb, ub)
+        # else:
+        #     scaled_action = action
+        scaled_action = action
         wrapped_step = self._wrapped_env.step(scaled_action, **kwargs)
         next_obs, reward, done, info = wrapped_step
         if self._clip_obs is not None:
