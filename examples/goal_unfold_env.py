@@ -6,6 +6,7 @@
 import os.path as osp
 import argparse
 import numpy as np
+import os
 
 from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
@@ -70,6 +71,7 @@ def main():
             show_depth()
 
     if args.save_video_dir is not None:
+        os.makedirs(args.save_video_dir, exist_ok=True)
         save_name = osp.join(args.save_video_dir, args.env_name + '.gif')
         save_numpy_as_gif(np.array(frames), save_name)
         print('Video generated and save to {}'.format(save_name))
