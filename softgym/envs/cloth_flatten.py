@@ -35,24 +35,27 @@ class ClothFlattenEnv(ClothEnv):
                 cloth_dimx, cloth_dimy = config['ClothSize']
             self.set_scene(config)
             self.action_tool.reset([0., -1., 0.])
+
+            # set the cloth to flat
             pos = pyflex.get_positions().reshape(-1, 4)
             pos[:, :3] -= np.mean(pos, axis=0)[:3]
             if self.action_mode in ['sawyer', 'franka']:  # Take care of the table in robot case
                 pos[:, 1] = 0.57
             else:
-                pos[:, 1] = 0.005
+                pos[:, 1] = 0.005 # same height for all cloth particles
             pos[:, 3] = 1
             pyflex.set_positions(pos.flatten())
             pyflex.set_velocities(np.zeros_like(pos))
             pyflex.step()
 
+            # determine the index of pick point & goal of picker & set its mass to infinity
             num_particle = cloth_dimx * cloth_dimy
-            pickpoint = random.randint(0, num_particle - 1)
+            pickpoint = random.randint(0, num_particle - 1)  # index of point on the cloth to be picked up
             curr_pos = pyflex.get_positions()
             original_inv_mass = curr_pos[pickpoint * 4 + 3]
             curr_pos[pickpoint * 4 + 3] = 0  # Set the mass of the pickup point to infinity so that it generates enough force to the rest of the cloth
             pickpoint_pos = curr_pos[pickpoint * 4: pickpoint * 4 + 3].copy()  # Pos of the pickup point is fixed to this point
-            pickpoint_pos[1] += np.random.random(1) * 0.5 + 0.5
+            pickpoint_pos[1] += np.random.random(1) * 0.5 + 0.5 # add lift-up replacemnet
             pyflex.set_positions(curr_pos)
 
             # Pick up the cloth and wait to stablize
@@ -82,7 +85,7 @@ class ClothFlattenEnv(ClothEnv):
             if self.action_mode == 'sphere' or self.action_mode.startswith('picker'):
                 curr_pos = pyflex.get_positions()
                 self.action_tool.reset(curr_pos[pickpoint * 4:pickpoint * 4 + 3] + [0., 0.2, 0.])
-            generated_configs.append(deepcopy(config))
+            generated_configs.append(deepcopy(config)) # last item, i.e., generated_configs[-1], is appended
             generated_states.append(deepcopy(self.get_state()))
             self.current_config = config  # Needed in _set_to_flatten function
             generated_configs[-1]['flatten_area'] = self._set_to_flatten()  # Record the maximum flatten area
@@ -98,7 +101,7 @@ class ClothFlattenEnv(ClothEnv):
         px = np.linspace(0, cloth_dimx * self.cloth_particle_radius, cloth_dimx)
         py = np.linspace(0, cloth_dimz * self.cloth_particle_radius, cloth_dimz)
         xx, yy = np.meshgrid(px, py)
-        new_pos = np.empty(shape=(N, 4), dtype=np.float)
+        new_pos = np.empty(shape=(N, 4), dtype=np.float32)
         new_pos[:, 0] = xx.flatten()
         new_pos[:, 1] = self.cloth_particle_radius
         new_pos[:, 2] = yy.flatten()
