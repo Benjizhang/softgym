@@ -236,6 +236,14 @@ class PickerPickPlace(Picker):
                 self.env.video_frames.append(self.env.render(mode='rgb_array'))
             if np.alltrue(dist < self.delta_move):
                 break
+        # wait until stable
+        for _ in range(100):
+            pyflex.step()
+            pyflex.render()
+            curr_vel = pyflex.get_velocities()
+            if np.alltrue(curr_vel < 0.01):
+                break
+
         return total_steps
 
     def get_model_action(self, action, picker_pos):
