@@ -97,7 +97,8 @@ class ClothEnv(FlexEnv):
             cam_pos, cam_angle = np.array([1.2, 0.7, 0]), np.array([np.pi/2, -np.pi/6, 0])
         config = {
             'ClothPos': [-1.6, 2.0, -0.8],
-            'ClothSize': [int(0.6 / particle_radius), int(0.368 / particle_radius)],
+            # 'ClothSize': [int(0.6 / particle_radius), int(0.368 / particle_radius)],
+            'ClothSize': [int(0.6/2 / particle_radius), int(0.368 /2/ particle_radius)],
             'ClothStiff': [0.8, 1, 0.9],  # Stretch, Bend and Shear
             'camera_name': 'default_camera',
             'camera_params': {'default_camera':

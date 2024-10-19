@@ -18,9 +18,9 @@ class ClothFlattenEnv(ClothEnv):
         self.get_cached_configs_and_states(cached_states_path, self.num_variations)
         self.prev_covered_area = None  # Should not be used until initialized
 
-    def generate_env_variation(self, num_variations=1, vary_cloth_size=True):
+    def generate_env_variation(self, num_variations=1, vary_cloth_size=False):
         """ Generate initial states. Note: This will also change the current states! """
-        max_wait_step = 300  # Maximum number of steps waiting for the cloth to stablize
+        max_wait_step = 100  # Maximum number of steps waiting for the cloth to stablize
         stable_vel_threshold = 0.01  # Cloth stable when all particles' vel are smaller than this
         generated_configs, generated_states = [], []
         default_config = self.get_default_config()
@@ -47,7 +47,7 @@ class ClothFlattenEnv(ClothEnv):
             pyflex.set_positions(pos.flatten())
             pyflex.set_velocities(np.zeros_like(pos))
             pyflex.step()
-
+            
             # determine the index of pick point & goal of picker & set its mass to infinity
             num_particle = cloth_dimx * cloth_dimy
             pickpoint = random.randint(0, num_particle - 1)  # index of point on the cloth to be picked up
