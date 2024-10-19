@@ -81,7 +81,7 @@ class Picker(ActionToolBase):
         pos = pyflex.get_shape_states()  # Need to call this to update the shape collision
         pyflex.set_shape_states(pos)
 
-        self.picked_particles = [None] * self.num_picker
+        self.picked_particles = [None] * self.num_picker # index of picked particles on the cloth for each picker
         shape_state = np.array(pyflex.get_shape_states()).reshape(-1, 14)
         centered_picker_pos = self._get_centered_picker_pos(center)
         for (i, centered_picker_pos) in enumerate(centered_picker_pos):
@@ -118,11 +118,11 @@ class Picker(ActionToolBase):
         """ action = [translation, pick/unpick] * num_pickers.
         1. Determine whether to pick/unpick the particle and which one, for each picker
         2. Update picker pos
-        3. Update picked particle pos
+        3. Update to-be-picked particle pos
         """
         action = np.reshape(action, [-1, 4])
 
-        # determine whether to pick/unpick the particle (via pick_flag)
+        # determine whether to pick the cloth at picker goal position (via pick_flag)
         # pick_flag = np.random.random(self.num_picker) < action[:, 3]
         pick_flag = action[:, 3] > 0.5
         picker_pos, particle_pos = self._get_pos()
@@ -137,13 +137,15 @@ class Picker(ActionToolBase):
 
         # Pick new particles and update the mass and the positions
         for i in range(self.num_picker):
+            # calculate the picker goal positions (current position + action)
             new_picker_pos[i, :] = self._apply_picker_boundary(picker_pos[i, :] + action[i, :3])
+            # if the picker should pick the particle at the picker goal position
             if pick_flag[i]:
                 if self.picked_particles[i] is None:  # No particle is currently picked and thus need to select a particle to pick
                     # compute distances between the single picker and all particles
                     dists = scipy.spatial.distance.cdist(picker_pos[i].reshape((-1, 3)), particle_pos[:, :3].reshape((-1, 3)))
                     idx_dists = np.hstack([np.arange(particle_pos.shape[0]).reshape((-1, 1)), dists.reshape((-1, 1))])
-                    # get valid candidate partilces (close enough to the picker)
+                    # get valid candidate partilces (close enough to the CURRENT picker)
                     mask = dists.flatten() <= self.picker_threshold + self.picker_radius + self.particle_radius
                     idx_dists = idx_dists[mask, :].reshape((-1, 2))
                     # find the closest unpicked particle from the valid candidate partilces
@@ -156,6 +158,7 @@ class Picker(ActionToolBase):
                         if pick_id is not None:
                             self.picked_particles[i] = int(pick_id)
 
+                # calculate goal positions of the to-be-picked particles
                 if self.picked_particles[i] is not None:
                     # TODO The position of the particle needs to be updated such that it is close to the picker particle
                     new_particle_pos[self.picked_particles[i], :3] = particle_pos[self.picked_particles[i], :3] + new_picker_pos[i, :] - picker_pos[i,:]
@@ -185,7 +188,7 @@ class Picker(ActionToolBase):
                         new_picker_pos[active_picker_indices[j], :] = picker_pos[active_picker_indices[j], :].copy()
                         new_particle_pos[picked_particle_idices[i], :3] = particle_pos[picked_particle_idices[i], :3].copy()
                         new_particle_pos[picked_particle_idices[j], :3] = particle_pos[picked_particle_idices[j], :3].copy()
-
+        # Update the picker and to-be-picked particles to goal positions
         self._set_pos(new_picker_pos, new_particle_pos)
 
 
@@ -207,7 +210,7 @@ class PickerPickPlace(Picker):
         the pick/drop state while moving towards x, y, x.
         """
         total_steps = 0
-        action = action.reshape(-1, 4)
+        action = action.reshape(-1, 4) # goal position and pick/drop flag for each picker
         curr_pos = np.array(pyflex.get_shape_states()).reshape(-1, 14)[:, :3]
         end_pos = np.vstack([self._apply_picker_boundary(picker_pos) for picker_pos in action[:, :3]])
         dist = np.linalg.norm(curr_pos - end_pos, axis=1)
@@ -216,6 +219,7 @@ class PickerPickPlace(Picker):
             return
         delta = (end_pos - curr_pos) / num_step
         norm_delta = np.linalg.norm(delta)
+        # update the picker to the goal position step by step
         for i in range(int(min(num_step, 300))):  # The maximum number of steps allowed for one pick and place
             curr_pos = np.array(pyflex.get_shape_states()).reshape(-1, 14)[:, :3]
             dist = np.linalg.norm(end_pos - curr_pos, axis=1)
