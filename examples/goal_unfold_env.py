@@ -60,13 +60,31 @@ def main():
     env = normalize(SOFTGYM_ENVS[args.env_name](**env_kwargs))
     env.reset()
 
+    center_pose = np.array([0.0, 0.2, 0.0])
+    # define rest posi for two pickers
+    rest_array = np.array([[*center_pose[:2], 0.5], [*center_pose[:2], -0.5]])
+    # define display posi (hanging cloth and wait stable) for two pickers
+    disply_pose = np.tile(center_pose, (2, 1))
+    
     frames = [env.get_image(args.img_size, args.img_size)]
     for i in range(env.horizon):
         action = env.action_space.sample()
+        # determine the grasp point on the cloth as goal of picker
+
+        # specify unp(ick) and p(ick) for two pickers
+
+        # unp: [goal, 1]; p: [current, 1]
+
         # By default, the environments will apply action repitition. The option of record_continuous_video provides rendering of all
         # intermediate frames. Only use this option for visualization as it increases computation.
         _, _, _, info = env.step(action, record_continuous_video=True, img_size=args.img_size)
         frames.extend(info['flex_env_recorded_frames'])
+        
+        # after get to the goal
+        # change unp and p for two pickers
+        
+        # unp: [rest, 0]; p: [display, 1]
+
         if args.test_depth:
             show_depth()
 
