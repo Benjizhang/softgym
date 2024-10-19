@@ -102,13 +102,18 @@ def main():
 
     center_pose = np.array([0.0, 0.5, 0.0])
     # define rest posi for two pickers
-    rest_array = np.array([[center_pose[0],0.3, 0.3], [center_pose[0],0.3, -0.3]])
+    rest_array = np.array([[center_pose[0],0.5, 0.3], [center_pose[0],0.5, -0.3]])
+    # stretch_pose = np.array([[center_pose[0],0.5, 0.368/4], [center_pose[0],0.5, -0.368/4]])
+    stretch_pose = np.array([[center_pose[0],0.5, 0.6/4], [center_pose[0],0.5, -0.6/4]])
+
     # define display posi (hanging cloth and wait stable) for two pickers
     disply_pose = np.tile(center_pose, (2, 1))
     
     frames = [env.get_image(args.img_size, args.img_size)]
-    key_indices = env._wrapped_env._get_key_point_idx()[:2]
+    key_indices = env._wrapped_env._get_key_point_idx()[[0,2]]
     index_temp = np.array([[0,1],[1,0]])
+    grasp_key_prev = -1
+    stretch_flag = 0
     for i in range(env.horizon):
         index_order = index_temp[i%2]
         # action = env.action_space.sample()
@@ -117,7 +122,13 @@ def main():
         action = np.zeros((2, 4))
         assert action.shape == (2, 4)
         # determine the grasp point on the cloth as goal of picker
-        goal_posi = get_goal_posi(key_indices)
+        grasp_key = key_indices[np.random.choice(key_indices.shape[0], 1)]
+        if grasp_key == grasp_key_prev and i > 0:
+            while grasp_key == grasp_key_prev:
+                grasp_key = key_indices[np.random.choice(key_indices.shape[0], 1 )]
+            stretch_flag = 1
+        grasp_key_prev = grasp_key
+        goal_posi = get_goal_posi(grasp_key)
 
         # specify unp(ick) and p(ick) for two pickers 
 
@@ -135,6 +146,16 @@ def main():
         _, _, _, info = env.step(action, record_continuous_video=True, img_size=args.img_size)
         frames.extend(info['flex_env_recorded_frames'])
         
+        if stretch_flag:
+            # stretch the cloth for rest_array position
+            action = np.hstack((stretch_pose, np.array([[1],[1]])))
+            action = action.flatten()
+
+            _, _, _, info = env.step(action, record_continuous_video=True, img_size=args.img_size)
+            frames.extend(info['flex_env_recorded_frames'])
+            stretch_flag = 0
+            break
+
         # after get to the goal
         action = np.zeros((2, 4))
         # unp -> p, p -> unp       
