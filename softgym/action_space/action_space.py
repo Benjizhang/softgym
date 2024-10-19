@@ -121,6 +121,8 @@ class Picker(ActionToolBase):
         3. Update picked particle pos
         """
         action = np.reshape(action, [-1, 4])
+
+        # determine whether to pick/unpick the particle (via pick_flag)
         # pick_flag = np.random.random(self.num_picker) < action[:, 3]
         pick_flag = action[:, 3] > 0.5
         picker_pos, particle_pos = self._get_pos()
@@ -138,10 +140,13 @@ class Picker(ActionToolBase):
             new_picker_pos[i, :] = self._apply_picker_boundary(picker_pos[i, :] + action[i, :3])
             if pick_flag[i]:
                 if self.picked_particles[i] is None:  # No particle is currently picked and thus need to select a particle to pick
+                    # compute distances between the single picker and all particles
                     dists = scipy.spatial.distance.cdist(picker_pos[i].reshape((-1, 3)), particle_pos[:, :3].reshape((-1, 3)))
                     idx_dists = np.hstack([np.arange(particle_pos.shape[0]).reshape((-1, 1)), dists.reshape((-1, 1))])
+                    # get valid candidate partilces (close enough to the picker)
                     mask = dists.flatten() <= self.picker_threshold + self.picker_radius + self.particle_radius
                     idx_dists = idx_dists[mask, :].reshape((-1, 2))
+                    # find the closest unpicked particle from the valid candidate partilces
                     if idx_dists.shape[0] > 0:
                         pick_id, pick_dist = None, None
                         for j in range(idx_dists.shape[0]):
@@ -153,8 +158,7 @@ class Picker(ActionToolBase):
 
                 if self.picked_particles[i] is not None:
                     # TODO The position of the particle needs to be updated such that it is close to the picker particle
-                    new_particle_pos[self.picked_particles[i], :3] = particle_pos[self.picked_particles[i], :3] + new_picker_pos[i, :] - picker_pos[i,
-                                                                                                                                         :]
+                    new_particle_pos[self.picked_particles[i], :3] = particle_pos[self.picked_particles[i], :3] + new_picker_pos[i, :] - picker_pos[i,:]
                     new_particle_pos[self.picked_particles[i], 3] = 0  # Set the mass to infinity
 
         # check for e.g., rope, the picker is not dragging the particles too far away that violates the actual physicals constraints.
@@ -169,11 +173,14 @@ class Picker(ActionToolBase):
             l = len(picked_particle_idices)
             for i in range(l):
                 for j in range(i + 1, l):
+                    # distance between the initial positions of the two picked particles on the cloth
                     init_distance = np.linalg.norm(self.init_particle_pos[picked_particle_idices[i], :3] -
                                                    self.init_particle_pos[picked_particle_idices[j], :3])
+                    # distance between their new positions after the picker actions.
                     now_distance = np.linalg.norm(new_particle_pos[picked_particle_idices[i], :3] -
                                                   new_particle_pos[picked_particle_idices[j], :3])
                     if now_distance >= init_distance * self.spring_coef:  # if dragged too long, make the action has no effect; revert it
+                        # cancel the dragging action, maintaining physical realism
                         new_picker_pos[active_picker_indices[i], :] = picker_pos[active_picker_indices[i], :].copy()
                         new_picker_pos[active_picker_indices[j], :] = picker_pos[active_picker_indices[j], :].copy()
                         new_particle_pos[picked_particle_idices[i], :3] = particle_pos[picked_particle_idices[i], :3].copy()
