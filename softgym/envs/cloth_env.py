@@ -2,7 +2,7 @@ import numpy as np
 from gym.spaces import Box
 import pyflex
 from softgym.envs.flex_env import FlexEnv
-from softgym.action_space.action_space import  Picker, PickerPickPlace, PickerQPG
+from softgym.action_space.action_space import Picker, PickerPickPlace, PickerQPG
 from softgym.action_space.robot_env import RobotBase
 from copy import deepcopy
 
@@ -100,7 +100,7 @@ class ClothEnv(FlexEnv):
             # 'ClothSize': [int(0.6 / particle_radius), int(0.368 / particle_radius)],
             'ClothSize': [int(0.6/2 / particle_radius), int(0.368 /2/ particle_radius)],
             'ClothStiff': [0.8, 1, 0.9],  # Stretch, Bend and Shear
-            'camera_name': 'default_camera',
+            'camera_name': 'default_camera', # TODO: change to "self.camera_name"
             'camera_params': {'default_camera':
                                   {'pos': cam_pos,
                                    'angle': cam_angle,
@@ -110,6 +110,19 @@ class ClothEnv(FlexEnv):
         }
 
         return config
+
+    def get_rgbd(self, show_picker=False):
+        if not show_picker:
+            self.action_tool.hide()
+        # Before read sensor, render must be called to update the buffer
+        rgb, _ = pyflex.render()
+        rgb = rgb.reshape((self.camera_height, self.camera_width, 4))[::-1, :, :3] / 255.
+        _, depth = pyflex.render_cloth()
+        depth[depth > 10] = 0.
+        depth = depth.reshape((self.camera_height, self.camera_width))[::-1]
+        rgbd = np.concatenate([rgb, depth[:, :, None]], axis=-1)
+        # self.action_tool.show() # NOTE: uncomment when needed
+        return rgbd
 
     def _get_obs(self):
         if self.observation_mode == 'cam_rgb':
