@@ -81,21 +81,21 @@ def get_observable_particle_index_old(world_coords, particle_pos, rgb, depth):
     # perform the matching of pixel particle to real particle
     particle_pos = particle_pos[:, :3]
 
-    estimated_world_coords = np.array(world_coords)[np.where(depth > 0)][:, :3]
+    estimated_world_coords = np.array(world_coords)[np.where(depth.flatten() > 0)][:, :3]
 
     distance = scipy.spatial.distance.cdist(estimated_world_coords, particle_pos)
 
-    estimated_particle_idx = np.argmin(distance, axis=1)
+    estimated_particle_idx = np.argmin(distance, axis=1) # min index for each row
 
-    estimated_particle_idx = np.unique(estimated_particle_idx)
+    estimated_particle_idx = np.unique(estimated_particle_idx) # index of pts in the image frame
 
     return np.array(estimated_particle_idx, dtype=np.int32)
 
 # get point clouds
 def get_pointcloud_and_index(env):
     cloth_mask, rgb, depth = get_rgbd_and_mask(env, 0)
-    world_coordinates = get_world_coords(rgb, depth, env)[:, :, :3].reshape((-1, 3))
-    pointcloud = world_coordinates[depth.flatten() > 0].astype(np.float32)
+    world_coordinates = get_world_coords(rgb, depth, env)[:, :, :3].reshape((-1, 3)) # based on image frame e.g. 720x720
+    pointcloud = world_coordinates[depth.flatten() > 0].astype(np.float32) # based on image frame e.g. num < 720x720
 
     position = pyflex.get_positions().reshape(-1, 4)[:, :3]
     observable_idx = get_observable_particle_index_old(world_coordinates, position, rgb, depth)
@@ -169,7 +169,7 @@ def main():
     env = normalize(SOFTGYM_ENVS[args.env_name](**env_kwargs))
     env.reset()
 
-    show_depth()
+    # show_depth() # to test the depth rendering
     key_indices = env._wrapped_env._get_key_point_idx()[[0,2]]
     plot_pointcloud_value(key_indices,env._wrapped_env)
 
