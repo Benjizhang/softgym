@@ -1,3 +1,6 @@
+# in my_softgym branch (create on 29-10-2024)
+There is no t-shirt flattening (i.e., not merging vcd branch in master branch).
+
 # SoftGym
 <a href="https://sites.google.com/view/softgym/home">SoftGym</a> is a set of benchmark environments for deformable object manipulation including tasks involving fluid, cloth and rope. It is built on top of the Nvidia FleX simulator and has standard Gym API for interaction with RL agents. A number of RL algorithms benchmarked on SoftGym can be found in <a href="https://github.com/Xingyu-Lin/softagent">SoftAgent</a>
 
