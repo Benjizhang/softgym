@@ -85,10 +85,10 @@ def get_observable_particle_index_old(world_coords, particle_pos, rgb, depth):
 
     distance = scipy.spatial.distance.cdist(estimated_world_coords, particle_pos)
 
-    estimated_particle_idx = np.argmin(distance, axis=1) # min index for each row
+    estimated_particle_idx = np.argmin(distance, axis=1) # min index for each row (find cloth particle index for each pixel)
 
-    estimated_particle_idx = np.unique(estimated_particle_idx) # index of pts in the image frame
-
+    estimated_particle_idx = np.unique(estimated_particle_idx) # index of pts on cloth
+    assert len(estimated_particle_idx) < particle_pos.shape[0]
     return np.array(estimated_particle_idx, dtype=np.int32)
 
 # get point clouds
@@ -124,21 +124,23 @@ def get_grasp_posi(policy_name, key_indices, env):
         raise NotImplementedError
 
 def plot_pointcloud_value(key_indices, env):
-    pointcloud, observable_idx = get_pointcloud_and_index(env)
+    _, observable_idx = get_pointcloud_and_index(env)
     pointcloud_values = get_pointcloud_values(key_indices, observable_idx)
     
+    all_cloth_pts = pyflex.get_positions().reshape(-1, 4)
+    obs_cloth_pts = all_cloth_pts[observable_idx]
     # plot the color map
     # Visualization in 3D
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
 
     # Scatter plot with color based on values
-    scatter = ax.scatter(pointcloud[:, 2], pointcloud[:, 0], pointcloud[:, 1], c=pointcloud_values, cmap='viridis', s=10)
+    scatter = ax.scatter(obs_cloth_pts[:, 2], obs_cloth_pts[:, 0], obs_cloth_pts[:, 1], c=pointcloud_values, cmap='viridis', s=10)
     plt.colorbar(scatter, label='Value based on Geodesic Distance')
-    ax.scatter(pointcloud[key_indices, 2], pointcloud[key_indices, 0], pointcloud[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
+    ax.scatter(obs_cloth_pts[key_indices, 2], obs_cloth_pts[key_indices, 0], obs_cloth_pts[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
     ax.set_title('Cloth Value to Key Features (w/ Geodesic Distances)')
     ax.set_xlabel('Z'),ax.set_ylabel('X'),ax.set_zlabel('Y')
-    ax.view_init(elev=10, azim=75)
+    ax.view_init(elev=10, azim=75) # TODO: set view angle same as the camera
     plt.legend()
     plt.show()
 
