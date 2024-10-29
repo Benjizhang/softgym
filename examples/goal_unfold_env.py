@@ -76,7 +76,7 @@ def get_goal_posi(key_indices):
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     # ['ClothFold', 'ClothFlatten', 'ClothDrop', 'ClothFoldCrumpled', 'ClothFoldDrop',
-    # 'ClothFlattenPPP']
+    # 'ClothFlattenPPP','TshirtFlatten']
     parser.add_argument('--env_name', type=str, default='ClothFlattenPPP')
     parser.add_argument('--headless', type=int, default=0, help='Whether to run the environment with headless rendering')
     parser.add_argument('--num_variations', type=int, default=1, help='Number of environment variations to be generated')
