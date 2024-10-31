@@ -1,6 +1,6 @@
 # copied from random_env.py
 # v2: add functions to get grasp positions from point clouds
-# TODO: NOT TESTED YET! delete it when it is tested
+#    Def: particle -> on cloth, point -> point cloud
 #
 # Z. Zhang
 # 10/2024
@@ -91,8 +91,8 @@ def get_observable_particle_index_old(world_coords, particle_pos, rgb, depth):
     assert len(estimated_particle_idx) < particle_pos.shape[0]
     return np.array(estimated_particle_idx, dtype=np.int32)
 
-# get point clouds
-def get_pointcloud_and_index(env):
+# get point clouds and corresponding indices of partilces on cloth
+def get_pointcloud_and_idx_of_cloth(env):
     cloth_mask, rgb, depth = get_rgbd_and_mask(env, 0)
     world_coordinates = get_world_coords(rgb, depth, env)[:, :, :3].reshape((-1, 3)) # based on image frame e.g. 720x720
     pointcloud = world_coordinates[depth.flatten() > 0].astype(np.float32) # based on image frame e.g. num < 720x720
@@ -102,30 +102,22 @@ def get_pointcloud_and_index(env):
 
     return pointcloud, observable_idx
 
-# get values of point clouds
-def get_pointcloud_values(key_indices, observable_idx):
+# get values of point clouds (given by observable_idx)
+def get_particle_value_from_idx(key_indices, observable_idx):
     all_points = pyflex.get_positions().reshape(-1, 4)
     geodesic_distances = compute_geodesic_distance(all_points[:,:3])
     all_points_values = calculate_values_geodesic(key_indices, geodesic_distances)
-    pointcloud_values = all_points_values[observable_idx]
+    pointcloud_values = all_points_values[observable_idx] # observable_idx: indices of pts on cloth
     
     return pointcloud_values
 
 # func to get grasp positions from point clouds
-def get_grasp_posi(policy_name, key_indices, env):
-    if policy_name == 'random_one_key_pose':
-        return random_one_key_pose(key_indices)
-    elif policy_name == 'max_value_pointcloud':
-        pointcloud, observable_idx = get_pointcloud_and_index(env)
-        pointcloud_values = get_pointcloud_values(key_indices, observable_idx)
-        max_idx = np.argmax(pointcloud_values)
-        return pointcloud[observable_idx[max_idx]] # TODO: fix this error!
-    else:
-        raise NotImplementedError
+# def get_grasp_posi(policy_name, key_indices, env):
+
 
 def plot_pointcloud_value(key_indices, env):
-    _, observable_idx = get_pointcloud_and_index(env)
-    pointcloud_values = get_pointcloud_values(key_indices, observable_idx)
+    _, observable_idx = get_pointcloud_and_idx_of_cloth(env) # observable_idx: indices of pts on cloth
+    pointcloud_values = get_particle_value_from_idx(key_indices, observable_idx)
     
     all_cloth_pts = pyflex.get_positions().reshape(-1, 4)
     obs_cloth_pts = all_cloth_pts[observable_idx]
