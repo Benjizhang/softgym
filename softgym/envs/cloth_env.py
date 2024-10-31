@@ -100,7 +100,7 @@ class ClothEnv(FlexEnv):
             # 'ClothSize': [int(0.6 / particle_radius), int(0.368 / particle_radius)],
             'ClothSize': [int(0.6/2 / particle_radius), int(0.368 /2/ particle_radius)],
             'ClothStiff': [0.8, 1, 0.9],  # Stretch, Bend and Shear
-            'camera_name': 'default_camera', # TODO: change to "self.camera_name"
+            'camera_name': self.camera_name,
             'camera_params': {'default_camera':
                                   {'pos': cam_pos,
                                    'angle': cam_angle,
