@@ -119,7 +119,7 @@ def get_grasp_posi(policy_name, key_indices, env):
         pointcloud, observable_idx = get_pointcloud_and_index(env)
         pointcloud_values = get_pointcloud_values(key_indices, observable_idx)
         max_idx = np.argmax(pointcloud_values)
-        return pointcloud[observable_idx[max_idx]]
+        return pointcloud[observable_idx[max_idx]] # TODO: fix this error!
     else:
         raise NotImplementedError
 
@@ -140,7 +140,7 @@ def plot_pointcloud_value(key_indices, env):
     ax.scatter(all_cloth_pts[key_indices, 2], all_cloth_pts[key_indices, 0], all_cloth_pts[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
     ax.set_title('Cloth Value to Key Features (w/ Geodesic Distances)')
     ax.set_xlabel('Z'),ax.set_ylabel('X'),ax.set_zlabel('Y')
-    ax.view_init(elev=10, azim=75) # TODO: set view angle same as the camera
+    ax.view_init(elev=74, azim=90) # view angle ROUGHLY same as the camera
     plt.legend()
     plt.show()
 
@@ -170,7 +170,7 @@ def main():
         print('Waiting to generate environment variations. May take 1 minute for each variation...')
     env = normalize(SOFTGYM_ENVS[args.env_name](**env_kwargs))
     env.reset()
-
+    
     # show_depth() # to test the depth rendering
     key_indices = env._wrapped_env._get_key_point_idx()[[0,2]]
     plot_pointcloud_value(key_indices,env._wrapped_env)
