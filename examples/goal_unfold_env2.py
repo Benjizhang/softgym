@@ -98,7 +98,7 @@ def get_pointcloud_and_index(env):
     pointcloud = world_coordinates[depth.flatten() > 0].astype(np.float32) # based on image frame e.g. num < 720x720
 
     position = pyflex.get_positions().reshape(-1, 4)[:, :3]
-    observable_idx = get_observable_particle_index_old(world_coordinates, position, rgb, depth)
+    observable_idx = get_observable_particle_index_old(world_coordinates, position, rgb, depth) # indices of pts on cloth
 
     return pointcloud, observable_idx
 
@@ -137,7 +137,7 @@ def plot_pointcloud_value(key_indices, env):
     # Scatter plot with color based on values
     scatter = ax.scatter(obs_cloth_pts[:, 2], obs_cloth_pts[:, 0], obs_cloth_pts[:, 1], c=pointcloud_values, cmap='viridis', s=10)
     plt.colorbar(scatter, label='Value based on Geodesic Distance')
-    ax.scatter(obs_cloth_pts[key_indices, 2], obs_cloth_pts[key_indices, 0], obs_cloth_pts[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
+    ax.scatter(all_cloth_pts[key_indices, 2], all_cloth_pts[key_indices, 0], all_cloth_pts[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
     ax.set_title('Cloth Value to Key Features (w/ Geodesic Distances)')
     ax.set_xlabel('Z'),ax.set_ylabel('X'),ax.set_zlabel('Y')
     ax.view_init(elev=10, azim=75) # TODO: set view angle same as the camera
