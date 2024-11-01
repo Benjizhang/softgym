@@ -80,7 +80,7 @@ def get_observable_particle_index_old(world_coords, particle_pos, rgb, depth):
     height, width, _ = rgb.shape
     # perform the matching of pixel particle to real particle
     particle_pos = particle_pos[:, :3]
-
+    # this is just pointcloud positions
     estimated_world_coords = np.array(world_coords)[np.where(depth.flatten() > 0)][:, :3]
 
     distance = scipy.spatial.distance.cdist(estimated_world_coords, particle_pos)
@@ -90,6 +90,40 @@ def get_observable_particle_index_old(world_coords, particle_pos, rgb, depth):
     estimated_particle_idx = np.unique(estimated_particle_idx) # index of pts on cloth
     assert len(estimated_particle_idx) < particle_pos.shape[0]
     return np.array(estimated_particle_idx, dtype=np.int32)
+
+# get values of point clouds
+def get_ptcloud_value(key_indices, ptclouds, particle_pos):
+    assert ptclouds.shape[1] == 3
+    assert particle_pos.shape[1] == 3
+    distance = scipy.spatial.distance.cdist(ptclouds, particle_pos)
+    # cloth particle index for each point cloud
+    estimated_particle_idx = np.argmin(distance, axis=1) # min index for each row (find cloth particle index for each pixel)
+    estimated_particle_idx = np.array(estimated_particle_idx, dtype=np.int32)
+    ptcloud_values = get_particle_value_from_idx(key_indices,estimated_particle_idx)
+    return ptcloud_values
+
+# plot ptcloud values
+def plot_ptcloud_value(key_indices,env):
+    # get particle positions
+    particle_pos = pyflex.get_positions().reshape(-1, 4)[:, :3]
+    # get ptcloud
+    ptclouds, _ = get_pointcloud_and_idx_of_cloth(env) 
+    # get values of point clouds
+    ptcloud_values = get_ptcloud_value(key_indices, ptclouds, particle_pos)
+    assert ptclouds.shape[0] == ptcloud_values.shape[0]
+    # plot the color map
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # Scatter plot with color based on values
+    scatter = ax.scatter(ptclouds[:, 2], ptclouds[:, 0], ptclouds[:, 1], c=ptcloud_values, cmap='viridis', s=10)
+    plt.colorbar(scatter, label='Value based on Geodesic Distance')
+    ax.scatter(particle_pos[key_indices, 2], particle_pos[key_indices, 0], particle_pos[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
+    ax.set_title('Pt Cloud Value to Key Features (w/ Geodesic Distances)')
+    ax.set_xlabel('Z'),ax.set_ylabel('X'),ax.set_zlabel('Y')
+    ax.view_init(elev=74, azim=90) # view angle ROUGHLY same as the camera
+    plt.legend()
+    plt.show()
 
 # get point clouds and corresponding indices of partilces on cloth
 def get_pointcloud_and_idx_of_cloth(env):
@@ -102,22 +136,26 @@ def get_pointcloud_and_idx_of_cloth(env):
 
     return pointcloud, observable_idx
 
-# get values of point clouds (given by observable_idx)
-def get_particle_value_from_idx(key_indices, observable_idx):
+# get gt values of all particles on the cloth
+def get_all_particle_value(key_indices):
     all_points = pyflex.get_positions().reshape(-1, 4)
     geodesic_distances = compute_geodesic_distance(all_points[:,:3])
-    all_points_values = calculate_values_geodesic(key_indices, geodesic_distances)
-    pointcloud_values = all_points_values[observable_idx] # observable_idx: indices of pts on cloth
-    
+    all_particle_values = calculate_values_geodesic(key_indices, geodesic_distances) 
+    return all_particle_values
+
+# get values of observable particles on the cloth (given indices)
+def get_particle_value_from_idx(key_indices, observable_idx):
+    all_points_values = get_all_particle_value(key_indices)
+    pointcloud_values = all_points_values[observable_idx] # observable_idx: must be indices of pts on cloth
     return pointcloud_values
 
 # func to get grasp positions from point clouds
 # def get_grasp_posi(policy_name, key_indices, env):
 
 
-def plot_pointcloud_value(key_indices, env):
+def plot_particle_value_from_ptcloud(key_indices, env):
     _, observable_idx = get_pointcloud_and_idx_of_cloth(env) # observable_idx: indices of pts on cloth
-    pointcloud_values = get_particle_value_from_idx(key_indices, observable_idx)
+    obs_cloth_pts_value = get_particle_value_from_idx(key_indices, observable_idx)
     
     all_cloth_pts = pyflex.get_positions().reshape(-1, 4)
     obs_cloth_pts = all_cloth_pts[observable_idx]
@@ -127,7 +165,7 @@ def plot_pointcloud_value(key_indices, env):
     ax = fig.add_subplot(111, projection='3d')
 
     # Scatter plot with color based on values
-    scatter = ax.scatter(obs_cloth_pts[:, 2], obs_cloth_pts[:, 0], obs_cloth_pts[:, 1], c=pointcloud_values, cmap='viridis', s=10)
+    scatter = ax.scatter(obs_cloth_pts[:, 2], obs_cloth_pts[:, 0], obs_cloth_pts[:, 1], c=obs_cloth_pts_value, cmap='viridis', s=10)
     plt.colorbar(scatter, label='Value based on Geodesic Distance')
     ax.scatter(all_cloth_pts[key_indices, 2], all_cloth_pts[key_indices, 0], all_cloth_pts[key_indices, 1], color='red', label='Key Points', edgecolor='black', s=100)
     ax.set_title('Cloth Value to Key Features (w/ Geodesic Distances)')
@@ -165,7 +203,8 @@ def main():
     
     # show_depth() # to test the depth rendering
     key_indices = env._wrapped_env._get_key_point_idx()[[0,2]]
-    plot_pointcloud_value(key_indices,env._wrapped_env)
+    # plot_particle_value_from_ptcloud(key_indices,env._wrapped_env)
+    plot_ptcloud_value(key_indices,env._wrapped_env)
 
     center_pose = np.array([0.0, 0.5, 0.0])
     # define rest posi for two pickers
