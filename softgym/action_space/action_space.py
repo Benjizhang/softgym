@@ -237,7 +237,7 @@ class PickerPickPlace(Picker):
         num_step = np.max(np.ceil(dist / self.delta_move))
         if num_step < 0.1:
             return
-        delta = (end_pos - curr_pos) / num_step
+        delta = (end_pos - curr_pos) / num_step # single-step displacement vector for each dim of every picker
         norm_delta = np.linalg.norm(delta)
         # update the picker to the goal position step by step
         for i in range(int(min(num_step, 300))):  # The maximum number of steps allowed for one pick and place
@@ -245,7 +245,7 @@ class PickerPickPlace(Picker):
             dist = np.linalg.norm(end_pos - curr_pos, axis=1)
             if np.alltrue(dist < norm_delta):
                 delta = end_pos - curr_pos
-            super().step(np.hstack([delta, action[:, 3].reshape(-1, 1)]))
+            super().step(np.hstack([delta, action[:, 3].reshape(-1, 1)])) # super() refers to the Picker class
             pyflex.step()
             pyflex.render() # render the scene for each step
             if i % 5 == 0:
