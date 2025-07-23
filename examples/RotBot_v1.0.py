@@ -187,7 +187,7 @@ def main():
 
     args = parser.parse_args() # get parameters from command line
 
-    env_kwargs = env_arg_dict[args.env_name] # get parameters from the given env_arg_dict
+    env_kwargs = env_arg_dict[args.env_name] # get parameters from the given env_arg_dict (kwarg: keyword arguments)
     # Generate and save the initial states for running this environment for the first time
     env_kwargs['use_cached_states'] = False
     env_kwargs['save_cached_states'] = False

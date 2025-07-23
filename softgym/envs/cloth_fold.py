@@ -12,6 +12,7 @@ class ClothFoldEnv(ClothEnv):
         super().__init__(**kwargs)
         self.get_cached_configs_and_states(cached_states_path, self.num_variations)
 
+    # rotate cloth (particles) along y axis (i.e., around the vertical axis)
     def rotate_particles(self, angle):
         pos = pyflex.get_positions().reshape(-1, 4)
         center = np.mean(pos, axis=0)
