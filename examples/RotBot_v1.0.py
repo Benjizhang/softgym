@@ -10,6 +10,7 @@ import argparse
 import numpy as np
 import os
 import scipy
+import math
 
 from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
@@ -174,6 +175,100 @@ def plot_particle_value_from_ptcloud(key_indices, env):
     plt.legend()
     plt.show()
 
+# Function to generate rotation trajectories for two grippers
+def gen_rotation_traj(traj_para):
+    num_step = traj_para['num_step'] if traj_para['num_step'] is not None else 100
+    d1 = traj_para['d1']
+    d2 = traj_para['d2']
+    poc = traj_para['poc']
+    assert poc.shape == (3,), "POC must be a 3D point (x, y, z)"
+    ang_init = traj_para['ang_init']
+    ang_rot = traj_para['ang_rot']
+    h = traj_para['height_lift']  # lift height
+
+    x1_ls, y1_ls, z1_ls, x2_ls, y2_ls, z2_ls = [], [], [], [], [], []
+    for i in range(num_step):
+        t = i / (num_step - 1)  # normalize t to [0, 1]
+        # interpolate between initial and goal positions
+        dt = d1 + (d2 - d1) * t
+            
+        # first gripper
+        ang_rot_t = ang_init + ang_rot * t
+        x1 = poc[0] + dt * np.cos(ang_rot_t)
+        y1 = poc[1] + dt * np.sin(ang_rot_t)
+        z1 = poc[2] + h * t  # lift height increases linearly
+        x1_ls.append(x1)
+        y1_ls.append(y1)
+        z1_ls.append(z1)
+        # second gripper
+        ang2_rot_t = (ang_init + np.pi) + ang_rot * t
+        x2 = poc[0] + dt * np.cos(ang2_rot_t)
+        y2 = poc[1] + dt * np.sin(ang2_rot_t)
+        z2 = poc[2] + h * t  # lift height increases linearly
+        x2_ls.append(x2)
+        y2_ls.append(y2)
+        z2_ls.append(z2)
+    # Convert lists to numpy arrays
+    x1_ls = np.array(x1_ls)
+    y1_ls = np.array(y1_ls)
+    z1_ls = np.array(z1_ls)
+    x2_ls = np.array(x2_ls)
+    y2_ls = np.array(y2_ls)
+    z2_ls = np.array(z2_ls)
+    # Return the trajectory points for both grippers
+    traj1 = np.column_stack((x1_ls, y1_ls, z1_ls))  # Trajectory for the first gripper
+    traj2 = np.column_stack((x2_ls, y2_ls, z2_ls))  # Trajectory for the second gripper
+    return traj1, traj2 
+
+# Function to find the best point of center (POC) based on given distance and angle
+def find_best_poc(cloth_pt, ang_init, d1):
+    assert np.round(d1-0,2)>1e-4, "d1 must be larger than 0"
+    all_points_2d = cloth_pt[:, :2]  # Extract 2D coordinates (x, y) from the cloth points
+    min_error = float('inf')
+    best_pair = None
+    best_poc = None
+    
+    num_points = len(all_points_2d)
+    # Iterate through all pairs of points to find the best pair
+    for i in range(num_points):
+        p1 = np.array(all_points_2d[i])
+        for j in range(i + 1, num_points):
+            p2 = np.array(all_points_2d[j])
+            # distance between p1 and p2
+            distance = np.linalg.norm(p2 - p1)
+            distance_error = abs(distance - d1) / d1 if d1 != 0 else abs(distance)
+            # angle of line p1-p2
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            if dx == 0 and dy == 0:
+                continue            
+            angle = math.atan2(dy, dx)
+            angle_diff = abs(angle - ang_init)
+            angle_error = min(angle_diff, 2*math.pi - angle_diff) / (2*math.pi)  # 归一化到[0, 0.5]
+            # total error is a combination of distance and angle errors
+            total_error = 0.5 * distance_error + 0.5 * angle_error
+            if total_error < min_error:
+                min_error = total_error
+                best_pair = (p1, p2)
+                best_pair_index = (i, j)
+                best_poc = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
+    if best_poc is None:
+        raise ValueError("No valid point pairs were found.")
+    poc_3d = np.array(best_poc+(0,))
+    return poc_3d, best_pair, best_pair_index, min_error
+
+def get_rotation_traj(traj_para):
+    # cloth points (x,y,z,1/mass)
+    all_points = pyflex.get_positions().reshape(-1, 4)
+    # find best POC
+    poc, best_pair, best_pair_index, min_error = find_best_poc(all_points, traj_para['ang_init'], traj_para['d1'])
+    traj_para['poc'] = poc
+    # generate trajectory points
+    traj1, traj2 = gen_rotation_traj(traj_para)
+    rot_traj = [traj1, traj2]
+    return rot_traj, traj_para
+
+
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     # ['ClothFold', 'ClothFlatten', 'ClothDrop', 'ClothFoldCrumpled', 'ClothFoldDrop',
@@ -204,7 +299,7 @@ def main():
     # show_depth() # to test the depth rendering
     key_indices = env._wrapped_env._get_key_point_idx()[[0,2]]
     # plot_particle_value_from_ptcloud(key_indices,env._wrapped_env)
-    plot_ptcloud_value(key_indices,env._wrapped_env)
+    # plot_ptcloud_value(key_indices,env._wrapped_env)
 
     center_pose = np.array([0.0, 0.5, 0.0])
     # define rest posi for two pickers
@@ -220,9 +315,32 @@ def main():
     index_temp = np.array([[0,1],[1,0]])
     grasp_key_prev = -1
     stretch_flag = 0
+    traj_para = {
+        'num_step': 100,
+        'D1': 0.2,  # initial distance between two grippers
+        'D2': 0.3,  # goal distance between two grippers
+        'd1': None, 
+        'd2': None, 
+        'poc': None,  # point of center
+        'ang_init': np.random.uniform(-np.pi, np.pi),  # initial angle in radians
+        'ang_rot': np.random.uniform(0, np.pi),  # rotation angle in radians
+        'height_lift': 0.1  # height to lift the cloth
+    }
+    traj_para['d1'] = traj_para['D1'] / 2  # initial distance between two grippers
+    traj_para['d2'] = traj_para['D2'] / 2  # goal distance between two grippers
+
     for i in range(env.horizon):
         index_order = index_temp[i%2]
         # action = env.action_space.sample()
+
+        # step1: determine picking pts on the cloth & rotation traj for two pickers
+        rot_traj, traj_para = get_rotation_traj(traj_para)
+
+        # step3: execute the action
+
+        # step4: execute the rotation action
+
+        # step5: unpick the cloth after rotation
 
         # initialize the action for two pickers
         action = np.zeros((2, 4))
@@ -236,8 +354,7 @@ def main():
         grasp_key_prev = grasp_key
         goal_posi = random_one_key_pose(grasp_key)
 
-        # specify unp(ick) and p(ick) for two pickers 
-
+        # specify unp(ick)/0 and p(ick)/1 for two pickers
         # unp: [goal, 1]; p: [current, 1]
         unp_action = np.hstack((goal_posi[0], 1)) 
         action[index_order[0]] = unp_action
